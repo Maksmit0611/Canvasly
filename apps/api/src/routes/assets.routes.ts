@@ -3,7 +3,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { PDFDocument } from 'pdf-lib';
-import { fromBuffer as fileTypeFromBuffer } from 'file-type';
+import { detectMimeType } from '../lib/magicBytes.js';
 import type { AssetKind } from '@canvas/shared';
 import { config } from '../config.js';
 import { validate } from '../middleware/validate.js';
@@ -67,12 +67,12 @@ assetsRouter.post(
       // Determine the real type from magic bytes, never from the client's
       // Content-Type or the filename — renaming evil.html to nice.png must
       // be rejected here.
-      const detected = await fileTypeFromBuffer(file.buffer);
-      const allowed = detected ? ALLOWED[detected.mime] : undefined;
+      const detected = detectMimeType(file.buffer);
+      const allowed = detected ? ALLOWED[detected] : undefined;
 
       if (!detected || !allowed) {
         throw new ApiError('VALIDATION_ERROR', 'Unsupported file type', {
-          detected: detected?.mime ?? 'unknown',
+          detected: detected ?? 'unknown',
           allowed: Object.keys(ALLOWED),
         });
       }
@@ -100,14 +100,14 @@ assetsRouter.post(
       // Storage key is generated, never derived from the uploaded filename.
       const assetId = crypto.randomUUID();
       const storageKey = `${projectId}/${assetId}.${allowed.ext}`;
-      await storage().put(storageKey, file.buffer, detected.mime);
+      await storage().put(storageKey, file.buffer, detected);
 
       const asset = await createAsset({
         projectId,
         uploaderId: user.id,
         kind: allowed.kind,
         filename: file.originalname.slice(0, 255),
-        mimeType: detected.mime,
+        mimeType: detected,
         sizeBytes: file.size,
         storageKey,
         pageCount,

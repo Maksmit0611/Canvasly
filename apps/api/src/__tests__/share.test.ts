@@ -168,3 +168,30 @@ describe('share links', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 });
+
+describe('reserved AI route', () => {
+  it('is authenticated and returns 501 until the milestone lands', async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/ai/command`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ prompt: 'draw a flowchart', selectedIds: [] });
+
+    expect(res.status).toBe(501);
+    expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+  });
+
+  it('401s without a token', async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/ai/command`)
+      .send({ prompt: 'hello', selectedIds: [] });
+    expect(res.status).toBe(401);
+  });
+
+  it('validates the prompt', async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/ai/command`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ prompt: '' });
+    expect(res.status).toBe(400);
+  });
+});
