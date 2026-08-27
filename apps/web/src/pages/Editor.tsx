@@ -3,15 +3,22 @@ import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, Redo2, Undo2 } from 'lucide-react';
 import Stage from '@/canvas/Stage';
 import Toolbar from '@/ui/Toolbar';
+import Ribbon from '@/ui/Ribbon';
+import RichTextOverlay from '@/canvas/overlays/RichTextOverlay';
 import ZoomControls from '@/ui/ZoomControls';
 import { useCanvasStore } from '@/store/canvasStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useEditorStore } from '@/store/editorStore';
 
 export default function Editor() {
   const { projectId } = useParams<{ projectId: string }>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+
+  const editor = useEditorStore((s) => s.editor);
+  // Subscribing to revision re-renders the ribbon as the caret moves.
+  useEditorStore((s) => s.revision);
 
   const canUndo = useHistoryStore((s) => s.past.length > 0);
   const canRedo = useHistoryStore((s) => s.future.length > 0);
@@ -76,10 +83,13 @@ export default function Editor() {
         </div>
       </header>
 
+      <Ribbon editor={editor} />
+
       <div className="flex min-h-0 flex-1">
         <Toolbar />
         <div ref={containerRef} className="relative min-w-0 flex-1" style={{ background: 'var(--surface)' }}>
           {viewport.width > 0 && <Stage width={viewport.width} height={viewport.height} />}
+          <RichTextOverlay />
           <ZoomControls viewport={viewport} />
         </div>
       </div>

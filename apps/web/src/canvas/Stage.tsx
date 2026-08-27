@@ -44,6 +44,7 @@ export default function Stage({ width, height }: Props) {
   const zoom = useCanvasStore((s) => s.zoom);
   const scrollX = useCanvasStore((s) => s.scrollX);
   const scrollY = useCanvasStore((s) => s.scrollY);
+  const editingTextId = useCanvasStore((s) => s.editingTextId);
 
   // Space+drag pans, matching the H tool without leaving the current tool.
   useEffect(() => {
@@ -476,7 +477,11 @@ export default function Stage({ width, height }: Props) {
       data-testid="canvas-stage"
     >
       <Layer>
-        {ordered.map((element) => (
+        {ordered
+          // The element being edited is drawn by the DOM overlay instead;
+          // rendering both ghosts them against each other.
+          .filter((element) => element.id !== editingTextId)
+          .map((element) => (
           <ElementRenderer
             key={element.id}
             element={element}

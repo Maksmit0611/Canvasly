@@ -105,3 +105,48 @@ body {
     border-radius: var(--radius);
   }
 }
+
+/* Rich-text overlay. Sizes are in em so everything scales with the inline
+   font-size, which the overlay multiplies by zoom to stay aligned. */
+.canvasly-richtext {
+  outline: none;
+}
+.canvasly-richtext p {
+  margin: 0;
+}
+.canvasly-richtext h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0;
+}
+.canvasly-richtext h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 0;
+}
+.canvasly-richtext h3 {
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 0;
+}
+.canvasly-richtext ul,
+.canvasly-richtext ol {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.canvasly-richtext ul {
+  list-style: disc;
+}
+.canvasly-richtext ol {
+  list-style: decimal;
+}
+.canvasly-richtext code {
+  font-family: monospace;
+}
+.canvasly-richtext p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
