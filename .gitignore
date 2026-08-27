@@ -8,3 +8,7 @@ playwright-report/
 test-results/
 coverage/
 .turbo/
+
+test-results/
+playwright-report/
+.playwright/

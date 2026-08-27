@@ -66,8 +66,12 @@ export function createApp(): Express {
     app.use(pinoHttp({ logger }));
   }
 
-  app.use('/api', generalLimiter);
+  // Health is mounted ahead of the limiter: it is a liveness probe, polled
+  // constantly by the platform and by test runners, and rate-limiting it makes
+  // a healthy server look down.
   app.use('/api', healthRouter);
+
+  app.use('/api', generalLimiter);
   app.use('/api', authRouter);
   app.use('/api', projectsRouter);
   app.use('/api', elementsRouter);

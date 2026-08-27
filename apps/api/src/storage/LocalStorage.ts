@@ -26,15 +26,20 @@ export class LocalStorage implements StorageAdapter {
     return full;
   }
 
-  async put(key: string, data: Buffer): Promise<void> {
+  /** `mimeType` is part of the interface but carries no meaning on disk — the
+   *  value is stored on the asset row and set on the response instead. */
+  async put(key: string, data: Buffer, _mimeType?: string): Promise<void> {
     const full = this.resolve(key);
     await fs.mkdir(path.dirname(full), { recursive: true });
     await fs.writeFile(full, data);
   }
 
   async get(key: string): Promise<Buffer> {
+    // Resolve outside the try: a traversal is a programming error and must not
+    // be flattened into a 404 alongside an ordinary missing file.
+    const full = this.resolve(key);
     try {
-      return await fs.readFile(this.resolve(key));
+      return await fs.readFile(full);
     } catch {
       throw notFound('Asset file');
     }

@@ -14,6 +14,8 @@ declare global {
   }
 }
 
+export type { CanvasTestHook as CanvasTestHookType };
+
 /**
  * Expose the stores for E2E assertions. Registered only outside production
  * builds, so it never reaches real users.

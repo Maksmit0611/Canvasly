@@ -104,7 +104,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           switch (cmd.op) {
             case 'create':
               for (const el of cmd.elements) {
-                draft.elements[el.id] = el;
+                // Copy rather than insert the object itself: elements coming
+                // from a history entry or a CRDT peer are frozen by immer, and
+                // reindex() below writes zIndex back onto them.
+                draft.elements[el.id] = { ...el };
                 if (!draft.elementOrder.includes(el.id)) draft.elementOrder.push(el.id);
                 draft.dirtyIds.add(el.id);
               }
