@@ -67,7 +67,7 @@ afterAll(async () => {
   await closePool();
 });
 
-const post = (body: unknown, auth = token) =>
+const post = (body: object, auth = token) =>
   request(app)
     .post(`/api/projects/${projectId}/elements/batch`)
     .set('Authorization', `Bearer ${auth}`)

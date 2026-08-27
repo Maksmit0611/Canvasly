@@ -13,6 +13,8 @@ import {
 import { MAX_ZOOM, MIN_ZOOM } from '@/lib/zoom';
 import ElementRenderer from './ElementRenderer';
 import SelectionLayer, { CURSOR_FOR_HANDLE, type HandleId } from './SelectionLayer';
+import RemoteCursors from './RemoteCursors';
+import type { RemotePresence } from '@/collab/useYjsRoom';
 import { boundsTransform, resizeBounds } from './resize';
 
 const DRAW_TOOLS: Tool[] = ['rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freedraw', 'text', 'frame'];
@@ -29,9 +31,11 @@ type Interaction =
 interface Props {
   width: number;
   height: number;
+  peers?: RemotePresence[];
+  onCursorMove?: (point: Point | null) => void;
 }
 
-export default function Stage({ width, height }: Props) {
+export default function Stage({ width, height, peers = [], onCursorMove }: Props) {
   const stageRef = useRef<Konva.Stage>(null);
   const [interaction, setInteraction] = useState<Interaction>({ kind: 'none' });
   const [marquee, setMarquee] = useState<Bounds | null>(null);
@@ -185,6 +189,9 @@ export default function Stage({ width, height }: Props) {
 
   const handlePointerMove = useCallback(
     (e: KonvaEventObject<PointerEvent>) => {
+      // Broadcast the pointer even when idle, so peers see it move.
+      if (onCursorMove) onCursorMove(pointerCanvasPos());
+
       if (interaction.kind === 'none') return;
       const store = useCanvasStore.getState();
 
@@ -473,6 +480,7 @@ export default function Stage({ width, height }: Props) {
       onPointermove={handlePointerMove}
       onPointerup={handlePointerUp}
       onPointercancel={handlePointerUp}
+      onPointerleave={() => onCursorMove?.(null)}
       onWheel={handleWheel}
       data-testid="canvas-stage"
     >
@@ -502,6 +510,7 @@ export default function Stage({ width, height }: Props) {
           marquee={marquee}
           onHandlePointerDown={handleHandlePointerDown}
         />
+        <RemoteCursors peers={peers} zoom={zoom} />
       </Layer>
     </KonvaStage>
   );

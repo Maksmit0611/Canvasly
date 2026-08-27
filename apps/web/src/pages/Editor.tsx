@@ -16,6 +16,7 @@ import { useSaveStore } from '@/store/saveStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAssetDrop } from '@/hooks/useAssetDrop';
 import { useAutosave } from '@/hooks/useAutosave';
+import { useYjsRoom } from '@/collab/useYjsRoom';
 import { getProject, updateProject } from '@/lib/projects';
 
 export default function Editor() {
@@ -52,6 +53,7 @@ export default function Editor() {
   }, []);
 
   useAutosave({ projectId, enabled: isLoaded, captureThumbnail });
+  const { isConnected, peers, setCursor } = useYjsRoom({ projectId, enabled: isLoaded });
 
   useLayoutEffect(() => {
     const node = containerRef.current;
@@ -141,6 +143,25 @@ export default function Editor() {
         </div>
 
         <div className="flex items-center gap-3">
+          {peers.length > 0 && (
+            <div className="flex items-center gap-1" title={`${peers.length} other editor(s)`}>
+              {peers.slice(0, 4).map((peer) => (
+                <span
+                  key={peer.clientId}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                  style={{ background: peer.color }}
+                  title={peer.name}
+                >
+                  {peer.name.slice(0, 1).toUpperCase()}
+                </span>
+              ))}
+            </div>
+          )}
+          {isConnected && (
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }} data-testid="collab-status">
+              Live
+            </span>
+          )}
           <SaveStatus />
           <div className="flex items-center gap-1">
             <button
@@ -179,7 +200,14 @@ export default function Editor() {
           className="relative min-w-0 flex-1"
           style={{ background: 'var(--surface)' }}
         >
-          {viewport.width > 0 && <Stage width={viewport.width} height={viewport.height} />}
+          {viewport.width > 0 && (
+            <Stage
+              width={viewport.width}
+              height={viewport.height}
+              peers={peers}
+              onCursorMove={setCursor}
+            />
+          )}
           <RichTextOverlay />
           <PdfPageControl />
 

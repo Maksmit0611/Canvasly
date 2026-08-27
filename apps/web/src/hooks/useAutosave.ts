@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { CanvasElement } from '@canvas/shared';
+import { CanvasElementSchema, type CanvasElement } from '@canvas/shared';
 import { useCanvasStore } from '@/store/canvasStore';
 import { useSaveStore } from '@/store/saveStore';
 import { saveElementBatch, updateProject } from '@/lib/projects';
@@ -53,9 +53,18 @@ export function useAutosave({ projectId, enabled = true, captureThumbnail }: Opt
 
       // Snapshot what we are sending, then clear it optimistically. Anything
       // changed while the request is in flight lands in a fresh dirty set.
-      const upserts = dirtyIds
+      // Elements can arrive from other peers over the CRDT, so validate before
+      // sending: one malformed element would otherwise fail every batch and
+      // wedge the queue in a permanent retry loop.
+      const candidates = dirtyIds
         .map((id) => store.elements[id])
         .filter((el): el is CanvasElement => Boolean(el) && !el!.isDeleted);
+
+      const upserts: CanvasElement[] = [];
+      for (const element of candidates) {
+        if (CanvasElementSchema.safeParse(element).success) upserts.push(element);
+        else console.warn('dropping malformed element from save batch', element.id);
+      }
       const deletes = deletedIds.filter((id) => store.elements[id]?.isDeleted);
 
       inFlight.current = true;
@@ -80,6 +89,17 @@ export function useAutosave({ projectId, enabled = true, captureThumbnail }: Opt
           }
         }
       } catch (err) {
+        // A 4xx means the payload will never be accepted; retrying it forever
+        // would wedge the queue. Only transient failures are re-queued.
+        const status = (err as { status?: number }).status ?? 0;
+        const isPermanent = status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+        if (isPermanent) {
+          console.error('save rejected permanently, dropping batch', err);
+          useSaveStore.getState().markSaved();
+          return;
+        }
+
         // Re-queue everything so nothing is lost, then retry with backoff.
         const canvas = useCanvasStore.getState();
         useCanvasStore.setState({
