@@ -9,14 +9,19 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate": "node-pg-migrate",
+    "migrate": "node scripts/migrate.js",
     "lint": "echo 'lint api'"
   },
   "dependencies": {
-    "dotenv": "^16.4.5"
+    "@canvas/shared": "^0.0.1",
+    "dotenv": "^16.4.5",
+    "node-pg-migrate": "^9.0.0",
+    "pg": "^8.23.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"
   }
