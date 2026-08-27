@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, Redo2, Undo2 } from 'lucide-react';
+import { ChevronLeft, Redo2, Share2, Undo2 } from 'lucide-react';
 import Stage from '@/canvas/Stage';
 import Toolbar from '@/ui/Toolbar';
 import Ribbon from '@/ui/Ribbon';
@@ -9,6 +9,7 @@ import PdfPageControl from '@/ui/PdfPageControl';
 import PropertiesPanel from '@/ui/PropertiesPanel';
 import ZoomControls from '@/ui/ZoomControls';
 import SaveStatus from '@/ui/SaveStatus';
+import ExportDialog from '@/ui/ExportDialog';
 import { useCanvasStore } from '@/store/canvasStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useEditorStore } from '@/store/editorStore';
@@ -27,6 +28,7 @@ export default function Editor() {
   const [title, setTitle] = useState('Untitled board');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const { isDragging, isUploading, error: uploadError } = useAssetDrop({
     projectId,
@@ -163,6 +165,15 @@ export default function Editor() {
             </span>
           )}
           <SaveStatus />
+          <button
+            type="button"
+            onClick={() => setShowExport(true)}
+            className="btn btn-ghost h-8 px-2 text-xs"
+            data-testid="open-export"
+          >
+            <Share2 size={14} />
+            Export
+          </button>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -244,6 +255,10 @@ export default function Editor() {
 
         <PropertiesPanel />
       </div>
+
+      {showExport && (
+        <ExportDialog projectId={projectId} title={title} onClose={() => setShowExport(false)} />
+      )}
     </div>
   );
 }

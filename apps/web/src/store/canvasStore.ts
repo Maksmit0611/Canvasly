@@ -22,6 +22,8 @@ interface CanvasState {
   scrollX: number;
   scrollY: number;
   editingTextId: string | null;
+  /** Read-only boards reject mutations here, not merely in the UI. */
+  isReadOnly: boolean;
   isDirty: boolean;
   dirtyIds: Set<string>;
   deletedIds: Set<string>;
@@ -53,6 +55,7 @@ interface CanvasState {
   duplicate: (ids: string[]) => void;
 
   loadElements: (elements: CanvasElement[]) => void;
+  setReadOnly: (isReadOnly: boolean) => void;
   markClean: () => void;
   orderedElements: () => CanvasElement[];
   selectedElements: () => CanvasElement[];
@@ -80,6 +83,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   scrollX: 0,
   scrollY: 0,
   editingTextId: null,
+  isReadOnly: false,
   isDirty: false,
   dirtyIds: new Set(),
   deletedIds: new Set(),
@@ -90,6 +94,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
    * rather than a rewrite.
    */
   applyCommands: (cmds, origin) => {
+    // Enforced in the store so a shared board cannot be edited by any route —
+    // hiding the toolbar would only stop the honest.
+    if (get().isReadOnly && origin === 'user') return;
+
     set(
       produce((draft: CanvasState) => {
         for (const cmd of cmds) {
@@ -319,6 +327,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
     useHistoryStore.getState().clear();
   },
+
+  setReadOnly: (isReadOnly) => set({ isReadOnly }),
 
   markClean: () => set({ isDirty: false, dirtyIds: new Set(), deletedIds: new Set() }),
 

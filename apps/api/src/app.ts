@@ -13,6 +13,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { projectsRouter } from './routes/projects.routes.js';
 import { assetsRouter } from './routes/assets.routes.js';
 import { elementsRouter } from './routes/elements.routes.js';
+import { shareRouter } from './routes/share.routes.js';
 import { ApiError } from './errors.js';
 
 export function createApp(): Express {
@@ -71,6 +72,7 @@ export function createApp(): Express {
   app.use('/api', projectsRouter);
   app.use('/api', elementsRouter);
   app.use('/api', assetsRouter);
+  app.use('/api', shareRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
