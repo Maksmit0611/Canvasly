@@ -55,7 +55,12 @@ projectsRouter.get('/projects/:id', validate({ params: IdParams }), async (req, 
 
 projectsRouter.patch(
   '/projects/:id',
-  validate({ params: IdParams, body: UpdateProjectSchema }),
+  validate({
+    params: IdParams,
+    // Thumbnails are generated client-side on save; cap the data URL so a
+    // huge payload cannot be parked in the projects table.
+    body: UpdateProjectSchema.extend({ thumbnail: z.string().max(400_000).optional() }),
+  }),
   async (req, res, next) => {
     try {
       const project = await updateProject(req.params.id!, currentUser(req).id, req.body);
