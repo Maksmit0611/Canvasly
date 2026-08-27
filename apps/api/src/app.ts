@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { projectsRouter } from './routes/projects.routes.js';
+import { assetsRouter } from './routes/assets.routes.js';
 import { ApiError } from './errors.js';
 
 export function createApp(): Express {
@@ -67,6 +68,7 @@ export function createApp(): Express {
   app.use('/api', healthRouter);
   app.use('/api', authRouter);
   app.use('/api', projectsRouter);
+  app.use('/api', assetsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

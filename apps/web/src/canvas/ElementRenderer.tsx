@@ -6,6 +6,8 @@ import LineShape from './shapes/LineShape';
 import ArrowShape from './shapes/ArrowShape';
 import FreedrawShape from './shapes/FreedrawShape';
 import TextShape from './shapes/TextShape';
+import ImageShape from './shapes/ImageShape';
+import PdfShape from './shapes/PdfShape';
 
 interface Props {
   element: CanvasElement;
@@ -37,7 +39,10 @@ function ElementRenderer({ element, elementsById, ...rest }: Props) {
       return <FreedrawShape {...shared} />;
     case 'text':
       return <TextShape {...shared} />;
-    // image and pdf arrive in Phase 8.
+    case 'image':
+      return <ImageShape {...shared} />;
+    case 'pdf':
+      return <PdfShape {...shared} />;
     default:
       return null;
   }
