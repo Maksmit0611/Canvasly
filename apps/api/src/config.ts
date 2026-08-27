@@ -12,7 +12,8 @@ const ConfigSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-    PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+    // 5050, not 5000: macOS AirPlay Receiver (ControlCenter) owns 5000.
+    PORT: z.coerce.number().int().min(1).max(65535).default(5050),
     CORS_ORIGINS: z.string().default('http://localhost:5173').transform(csv),
 
     // Railway injects DATABASE_URL; it wins over the individual DB_* vars.
