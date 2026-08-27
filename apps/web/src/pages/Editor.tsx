@@ -6,6 +6,7 @@ import Toolbar from '@/ui/Toolbar';
 import Ribbon from '@/ui/Ribbon';
 import RichTextOverlay from '@/canvas/overlays/RichTextOverlay';
 import PdfPageControl from '@/ui/PdfPageControl';
+import PropertiesPanel from '@/ui/PropertiesPanel';
 import ZoomControls from '@/ui/ZoomControls';
 import { useCanvasStore } from '@/store/canvasStore';
 import { useHistoryStore } from '@/store/historyStore';
@@ -136,6 +137,8 @@ export default function Editor() {
           )}
           <ZoomControls viewport={viewport} />
         </div>
+
+        <PropertiesPanel />
       </div>
     </div>
   );
