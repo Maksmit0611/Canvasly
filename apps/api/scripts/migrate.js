@@ -10,6 +10,8 @@
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+// In production (Docker/Railway) there is no .env file; env vars are injected
+// directly. dotenv is a no-op when the file is absent, so this is always safe.
 require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 
 const env = process.env;

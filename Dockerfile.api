@@ -1,0 +1,44 @@
+# ---- Build stage ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy workspace manifests first so this layer is cached unless deps change.
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+
+RUN npm ci --workspace=packages/shared --workspace=apps/api
+
+COPY packages/shared/ ./packages/shared/
+COPY apps/api/ ./apps/api/
+COPY tsconfig.base.json ./
+
+RUN npm run build --workspace=packages/shared
+RUN npm run build --workspace=apps/api
+
+# ---- Production stage ----
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Re-install production deps only (no typescript, vitest, etc.)
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+
+RUN npm ci --workspace=packages/shared --workspace=apps/api --omit=dev
+
+# Compiled output from builder
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+
+# Migration files needed at runtime
+COPY apps/api/migrations ./apps/api/migrations
+COPY apps/api/scripts ./apps/api/scripts
+
+EXPOSE 5050
+WORKDIR /app/apps/api
+
+# Run migrations then start the server.
+# DATABASE_URL is injected by Railway from the linked PostgreSQL plugin.
+CMD ["sh", "-c", "node scripts/migrate.js up && node dist/index.js"]
