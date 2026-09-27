@@ -8,7 +8,7 @@ import {
 import clsx from 'clsx';
 import { useCanvasStore, type Tool } from '@/store/canvasStore';
 
-const FONTS = ['Inter', 'Georgia', 'Courier New', 'Comic Sans MS'];
+const FONTS = ['Kalam', 'Inter', 'Georgia', 'Courier New', 'Comic Sans MS'];
 const SIZES = [8, 10, 12, 14, 16, 20, 24, 32, 40, 56, 72];
 
 interface ButtonProps {
@@ -99,7 +99,7 @@ export default function Ribbon({ editor }: Props) {
         <div className="flex items-stretch gap-1 px-2 py-2">
           <Group label="Font">
             <select
-              value={selected[0]?.fontFamily ?? 'Inter'}
+              value={selected[0]?.fontFamily ?? 'Kalam'}
               disabled={disabled}
               onChange={(e) => {
                 editor?.chain().focus().setFontFamily(e.target.value).run();

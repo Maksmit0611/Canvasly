@@ -20,6 +20,14 @@ describe('createElement', () => {
     expect(CanvasElementSchema.safeParse(element).success).toBe(true);
   });
 
+  it('uses the handwritten Kalam font for new elements and schema defaults', () => {
+    const element = createElement('text', { x: 0, y: 0 });
+    expect(element.fontFamily).toBe('Kalam');
+
+    const { fontFamily: _fontFamily, ...withoutFont } = element;
+    expect(CanvasElementSchema.parse(withoutFont).fontFamily).toBe('Kalam');
+  });
+
   it('places the element at the origin point', () => {
     const element = createElement('ellipse', { x: 42, y: 99 });
     expect(element.x).toBe(42);

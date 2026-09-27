@@ -64,7 +64,7 @@ export const CanvasElementSchema = z.object({
   // used for search, export, and accessibility.
   richText: z.unknown().optional(),
   plainText: z.string().optional(),
-  fontFamily: z.string().default('Inter'),
+  fontFamily: z.string().default('Kalam'),
   fontSize: z.number().min(8).max(200).default(16),
   textAlign: TextAlignSchema.default('left'),
   verticalAlign: VerticalAlignSchema.default('top'),

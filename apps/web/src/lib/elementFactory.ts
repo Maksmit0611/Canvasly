@@ -35,7 +35,7 @@ export const DEFAULTS: ElementDefaults = {
   fillStyle: 'solid',
   roughness: 'artist',
   opacity: 1,
-  fontFamily: 'Inter',
+  fontFamily: 'Kalam',
   fontSize: 20,
 };
 
