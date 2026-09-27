@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Plus, Trash2 } from 'lucide-react';
 import type { Project } from '@canvas/shared';
+import { Logo } from '@/components/Logo';
 import { signOut } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
 import { createProject, deleteProject, listProjects } from '@/lib/projects';
@@ -63,6 +64,9 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mb-6">
+        <Logo size={26} />
+      </div>
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {user?.avatarUrl && (
@@ -114,6 +118,7 @@ export default function Dashboard() {
           className="card mt-8 flex flex-col items-center justify-center px-6 py-20 text-center"
           style={{ borderStyle: 'dashed' }}
         >
+          <Logo size={34} />
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No boards yet.</p>
           <button
             type="button"
@@ -128,7 +133,10 @@ export default function Dashboard() {
       ) : (
         <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="project-list">
           {projects.map((project) => (
-            <li key={project.id} className="card group relative overflow-hidden">
+            <li
+              key={project.id}
+              className="card group relative overflow-hidden transition-shadow duration-200 hover:shadow-md"
+            >
               <button
                 type="button"
                 onClick={() => navigate(`/p/${project.id}`)}

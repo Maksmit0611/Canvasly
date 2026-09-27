@@ -150,3 +150,106 @@ body {
   height: 0;
   pointer-events: none;
 }
+
+/*
+ * Landing / marketing styling. A subtle dot grid evokes the infinite canvas;
+ * shapes float gently behind the hero. Everything reuses the design tokens so
+ * the dark theme stays consistent.
+ */
+.landing-grid {
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.landing-gradient-text {
+  background: linear-gradient(100deg, var(--accent) 0%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  animation: landing-rise 0.5s var(--transition) both;
+}
+
+.landing-title {
+  animation: landing-rise 0.6s 0.05s both;
+}
+
+.landing-cta {
+  min-width: 190px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  animation: landing-rise 0.6s 0.15s both;
+}
+
+.landing-card {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.landing-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.08);
+}
+
+.landing-float {
+  position: absolute;
+  animation: landing-drift 14s ease-in-out infinite;
+}
+
+.landing-shape-rect,
+.landing-shape-circle {
+  border: 2px dashed var(--border-strong);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.06);
+}
+.landing-shape-rect {
+  width: 96px;
+  height: 64px;
+  border-radius: 12px;
+  transform: rotate(-8deg);
+}
+.landing-shape-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) rotate(2deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-float,
+  .landing-pill,
+  .landing-title,
+  .landing-cta {
+    animation: none;
+  }
+}

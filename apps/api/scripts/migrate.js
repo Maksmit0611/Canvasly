@@ -29,9 +29,16 @@ const databaseUrl =
 const pkgJson = require.resolve('node-pg-migrate/package.json');
 const cli = path.join(path.dirname(pkgJson), 'bin', 'node-pg-migrate.js');
 
+// node-pg-migrate 9 dropped the implicit `up` action and exits with its help
+// text when invoked bare, so default to `up` here. Explicit actions still pass
+// through untouched (`migrate.js down`, `migrate.js create <name>`, ...).
+const actions = new Set(['up', 'down', 'create', 'redo']);
+const args = process.argv.slice(2);
+const cliArgs = args.some((arg) => actions.has(arg)) ? args : ['up', ...args];
+
 const result = spawnSync(
   process.execPath,
-  [cli, '--migrations-dir', path.resolve(__dirname, '../migrations'), ...process.argv.slice(2)],
+  [cli, '--migrations-dir', path.resolve(__dirname, '../migrations'), ...cliArgs],
   {
     stdio: 'inherit',
     env: { ...env, DATABASE_URL: databaseUrl },

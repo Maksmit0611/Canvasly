@@ -104,7 +104,7 @@ export async function gotoInApp(page: Page, targetPath: string): Promise<void> {
 }
 
 /** Put the session into the app's stores and land on the given path. */
-export async function signIn(page: Page, session: Session, targetPath = '/'): Promise<void> {
+export async function signIn(page: Page, session: Session, targetPath = '/boards'): Promise<void> {
   await page.goto('/login');
   await applySession(page, session);
 

@@ -37,7 +37,7 @@ export async function signOut(): Promise<void> {
     await api.post('/auth/logout');
   } finally {
     useAuthStore.getState().clear();
-    window.location.assign('/login');
+    window.location.assign('/');
   }
 }
 

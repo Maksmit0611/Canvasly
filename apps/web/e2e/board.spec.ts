@@ -14,7 +14,7 @@ test.afterAll(() => {
 });
 
 test('sign in, create a board, draw, and persist across a reload', async ({ page }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
 
   // Dashboard starts empty for a brand new user.
   await expect(page.getByTestId('new-board')).toBeVisible();
@@ -50,7 +50,7 @@ test('sign in, create a board, draw, and persist across a reload', async ({ page
 });
 
 test('rich text survives a reload with its formatting', async ({ page }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
   await page.getByTestId('new-board').click();
   await expect(page).toHaveURL(/\/p\/[0-9a-f-]{36}/);
   const boardUrl = page.url();
@@ -103,7 +103,7 @@ test('rich text survives a reload with its formatting', async ({ page }) => {
 });
 
 test('undo and redo reverse and replay edits', async ({ page }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
   await page.getByTestId('new-board').click();
   await expect(page).toHaveURL(/\/p\/[0-9a-f-]{36}/);
 
@@ -119,7 +119,7 @@ test('undo and redo reverse and replay edits', async ({ page }) => {
 });
 
 test('zoom keeps selection handles a constant screen size', async ({ page }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
   await page.getByTestId('new-board').click();
   await expect(page).toHaveURL(/\/p\/[0-9a-f-]{36}/);
 
@@ -141,7 +141,7 @@ test('zoom keeps selection handles a constant screen size', async ({ page }) => 
 });
 
 test('exports a PNG download', async ({ page }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
   await page.getByTestId('new-board').click();
   await expect(page).toHaveURL(/\/p\/[0-9a-f-]{36}/);
 
@@ -159,7 +159,7 @@ test('exports a PNG download', async ({ page }) => {
 });
 
 test('a share link renders read-only and cannot be edited', async ({ page, request }) => {
-  await signIn(page, session, '/');
+  await signIn(page, session, '/boards');
   await page.getByTestId('new-board').click();
   await expect(page).toHaveURL(/\/p\/[0-9a-f-]{36}/);
   const projectId = page.url().split('/p/')[1]!;
