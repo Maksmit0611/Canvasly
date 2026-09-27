@@ -60,6 +60,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/canvas_test
           DB_NAME: canvas_test
           JWT_SECRET: ci-secret-32-chars-minimum-length
+          # Config validation requires both at import; the tests mock the
+          # actual Google token verification.
+          GOOGLE_CLIENT_ID: ci-placeholder-client-id
+          GOOGLE_CLIENT_SECRET: ci-placeholder-client-secret
           NODE_ENV: test
           STORAGE_DRIVER: local
           UPLOAD_DIR: /tmp/canvasly-uploads-ci
