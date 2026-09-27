@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { Logo } from '@/components/Logo';
 
 interface Props {
   children: ReactElement;
@@ -17,7 +18,8 @@ export default function ProtectedRoute({ children }: Props) {
 
   if (isRestoring) {
     return (
-      <div className="flex h-full items-center justify-center" role="status" aria-live="polite">
+      <div className="flex h-full flex-col items-center justify-center gap-3" role="status" aria-live="polite">
+        <Logo size={24} />
         <span
           className="h-5 w-5 animate-spin rounded-full border-2 border-transparent"
           style={{ borderTopColor: 'var(--accent)', borderRightColor: 'var(--accent)' }}

@@ -115,7 +115,7 @@ export default function Editor() {
         <div className="card max-w-sm px-6 py-8 text-center">
           <h1 className="text-base font-semibold">Could not open this board</h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>{loadError}</p>
-          <Link to="/" className="btn btn-ghost mt-4">Back to your boards</Link>
+          <Link to="/boards" className="btn btn-ghost mt-4">Back to your boards</Link>
         </div>
       </div>
     );
@@ -128,7 +128,7 @@ export default function Editor() {
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)' }}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <Link to="/" className="flex h-8 w-8 items-center justify-center rounded" aria-label="Back to boards">
+          <Link to="/boards" className="flex h-8 w-8 items-center justify-center rounded" aria-label="Back to boards">
             <ChevronLeft size={17} />
           </Link>
           <input

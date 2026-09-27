@@ -15,9 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
+      # @canvas/shared publishes its types from dist/, so build it before any
+      # workspace that imports it can type-check.
+      - run: npm run build --workspace=packages/shared
       - run: npm run typecheck
 
   # ── API integration tests (need a real Postgres) ─────────────────────────────
@@ -42,9 +45,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build --workspace=packages/shared
       # Run migrations against the test database before vitest starts.
       - name: Migrate test DB
         run: node apps/api/scripts/migrate.js up
@@ -56,6 +60,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/canvas_test
           DB_NAME: canvas_test
           JWT_SECRET: ci-secret-32-chars-minimum-length
+          # Config validation requires both at import; the tests mock the
+          # actual Google token verification.
+          GOOGLE_CLIENT_ID: ci-placeholder-client-id
+          GOOGLE_CLIENT_SECRET: ci-placeholder-client-secret
           NODE_ENV: test
           STORAGE_DRIVER: local
           UPLOAD_DIR: /tmp/canvasly-uploads-ci
@@ -69,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build --workspace=packages/shared
