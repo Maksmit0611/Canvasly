@@ -101,9 +101,11 @@ export default function Stage({ width, height, peers = [], onCursorMove }: Props
 
       if (DRAW_TOOLS.includes(store.activeTool)) {
         const type = store.activeTool as CanvasElement['type'];
+        const isBox = ['rectangle', 'ellipse', 'diamond', 'frame'].includes(type);
         const element = createElement(type, pos, {
           zIndex: store.elementOrder.length,
           ...(type === 'text' ? { width: 200, height: 32, plainText: '' } : {}),
+          ...(isBox ? { textAlign: 'center', verticalAlign: 'middle' } : {}),
         });
         store.addElement(element);
         setInteraction({ kind: 'draw', id: element.id, origin: pos });
@@ -417,6 +419,10 @@ export default function Stage({ width, height, peers = [], onCursorMove }: Props
         }
         store.setTool('select');
         store.select([el.id]);
+        // Text tools and freshly drawn boxes are ready for typing immediately.
+        if (el.type === 'text' || ['rectangle', 'ellipse', 'diamond', 'frame'].includes(el.type)) {
+          store.setEditingTextId(el.id);
+        }
       }
     }
 
@@ -444,8 +450,10 @@ export default function Stage({ width, height, peers = [], onCursorMove }: Props
   const handleDoubleClick = useCallback(
     (element: CanvasElement) => (e: KonvaEventObject<MouseEvent>) => {
       e.cancelBubble = true;
-      // Phase 7 mounts the rich-text overlay against this id.
-      useCanvasStore.getState().setEditingTextId(element.id);
+      // Only text-bearing elements have an editor/rendering surface.
+      if (element.type === 'text' || ['rectangle', 'ellipse', 'diamond', 'frame'].includes(element.type)) {
+        useCanvasStore.getState().setEditingTextId(element.id);
+      }
     },
     [],
   );
@@ -486,9 +494,9 @@ export default function Stage({ width, height, peers = [], onCursorMove }: Props
     >
       <Layer>
         {ordered
-          // The element being edited is drawn by the DOM overlay instead;
-          // rendering both ghosts them against each other.
-          .filter((element) => element.id !== editingTextId)
+          // Text elements are drawn by the DOM overlay while editing; shapes
+          // stay rendered, with their canvas label hidden by the shape renderer.
+          .filter((element) => element.id !== editingTextId || element.type !== 'text')
           .map((element) => (
           <ElementRenderer
             key={element.id}

@@ -75,8 +75,11 @@ export default function RichTextOverlay() {
         {
           richText: json,
           plainText: toPlainText(json),
-          // Divide back out of screen space so the shape grows with content.
-          ...(measured ? { height: Math.max(element.fontSize, measured.height / zoom) } : {}),
+          // Text boxes can grow with their content; labels stay inside the
+          // shape's existing geometry instead of resizing the shape itself.
+          ...(element.type === 'text' && measured
+            ? { height: Math.max(element.fontSize, measured.height / zoom) }
+            : {}),
         },
         { label: 'Edit text' },
       );
@@ -110,6 +113,8 @@ export default function RichTextOverlay() {
   if (!editingTextId || !element || !editor || editor.isDestroyed) return null;
 
   const screen = canvasToScreen({ x: element.x, y: element.y }, zoom, scrollX, scrollY);
+  const isShapeLabel = ['rectangle', 'ellipse', 'diamond', 'frame'].includes(element.type);
+  const inset = Math.min(12, Math.max(4, Math.min(element.width, element.height) * 0.08));
 
   const style: CSSProperties = {
     position: 'absolute',
@@ -117,6 +122,20 @@ export default function RichTextOverlay() {
     top: screen.y,
     width: (element.width > 0 ? element.width : 200) * zoom,
     minHeight: Math.max(element.height, element.fontSize) * zoom,
+    ...(isShapeLabel
+      ? {
+          height: Math.max(element.height, element.fontSize) * zoom,
+          boxSizing: 'border-box' as const,
+          padding: inset * zoom,
+          display: 'flex',
+          flexDirection: 'column' as const,
+          justifyContent: element.verticalAlign === 'middle'
+            ? 'center'
+            : element.verticalAlign === 'bottom'
+              ? 'flex-end'
+              : 'flex-start',
+        }
+      : {}),
     transform: `rotate(${element.angle}rad)`,
     transformOrigin: 'top left',
     // Scaling the font by zoom is what keeps the overlay aligned with the
@@ -134,7 +153,7 @@ export default function RichTextOverlay() {
 
   return (
     <div ref={containerRef} style={style} data-testid="richtext-overlay">
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} style={isShapeLabel ? { width: '100%' } : undefined} />
     </div>
   );
 }
