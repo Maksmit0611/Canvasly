@@ -18,6 +18,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # @canvas/shared publishes its types from dist/, so build it before any
+      # workspace that imports it can type-check.
+      - run: npm run build --workspace=packages/shared
       - run: npm run typecheck
 
   # ── API integration tests (need a real Postgres) ─────────────────────────────
@@ -45,6 +48,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm run build --workspace=packages/shared
       # Run migrations against the test database before vitest starts.
       - name: Migrate test DB
         run: node apps/api/scripts/migrate.js up
