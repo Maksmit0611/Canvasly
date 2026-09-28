@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, Redo2, Share2, Undo2 } from 'lucide-react';
+import { Download, HardDrive, ChevronLeft, Redo2, Share2, Undo2 } from 'lucide-react';
+import { AppStateSchema, type CharacterGender } from '@canvas/shared';
 import Stage from '@/canvas/Stage';
 import Toolbar from '@/ui/Toolbar';
 import Ribbon from '@/ui/Ribbon';
@@ -16,23 +17,33 @@ import { useEditorStore } from '@/store/editorStore';
 import { useSaveStore } from '@/store/saveStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAssetDrop } from '@/hooks/useAssetDrop';
-import { useAutosave } from '@/hooks/useAutosave';
-import { useYjsRoom } from '@/collab/useYjsRoom';
-import { getProject, updateProject } from '@/lib/projects';
+import { useLocalBoardAutosave } from '@/hooks/useLocalBoardAutosave';
+import { createElement } from '@/lib/elementFactory';
+import { screenToCanvas } from '@/lib/geometry';
+import { exportPortableJson, safeFilename, saveTextToComputer } from '@/lib/export';
+import { getLocalBoard, saveLocalBoard } from '@/lib/localBoards';
+import { getProject } from '@/lib/projects';
 
 export default function Editor() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, boardId } = useParams<{ projectId: string; boardId: string }>();
+  const isLocalBoard = Boolean(boardId);
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [canvasHost, setCanvasHost] = useState<HTMLDivElement | null>(null);
   const [title, setTitle] = useState('Untitled board');
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedRouteId, setLoadedRouteId] = useState<string | null>(null);
+  const routeId = boardId ?? projectId ?? null;
+  const isLoaded = routeId !== null && loadedRouteId === routeId;
   const [showExport, setShowExport] = useState(false);
+  const [isSavingFile, setIsSavingFile] = useState(false);
+  const [fileSaveMessage, setFileSaveMessage] = useState<string | null>(null);
 
   const { isDragging, isUploading, error: uploadError } = useAssetDrop({
-    projectId,
+    projectId: isLocalBoard ? undefined : projectId,
     container: canvasHost,
+    localOnly: isLocalBoard,
+    allowRemoteUpload: false,
   });
 
   const editor = useEditorStore((s) => s.editor);
@@ -43,19 +54,9 @@ export default function Editor() {
 
   useKeyboardShortcuts({ viewport });
 
-  const captureThumbnail = useCallback((): string | null => {
-    const stage = (window as { Konva?: { stages: { toDataURL(o: object): string }[] } })
-      .Konva?.stages[0];
-    try {
-      return stage?.toDataURL({ pixelRatio: 0.25, mimeType: 'image/jpeg', quality: 0.6 }) ?? null;
-    } catch {
-      // A tainted canvas (cross-origin asset) makes export throw; skip it.
-      return null;
-    }
-  }, []);
-
-  useAutosave({ projectId, enabled: isLoaded, captureThumbnail });
-  const { isConnected, peers, setCursor } = useYjsRoom({ projectId, enabled: isLoaded });
+  // Board content is never sent to the cloud. Local boards autosave to IndexedDB;
+  // old account boards are preserved as read-only copies without Yjs connections.
+  useLocalBoardAutosave({ boardId, title, enabled: isLoaded });
 
   useLayoutEffect(() => {
     const node = containerRef.current;
@@ -73,24 +74,43 @@ export default function Editor() {
   }, [canvasHost]);
 
   useEffect(() => {
-    if (!projectId) return;
+    const localId = boardId;
+    const accountId = isLocalBoard ? undefined : projectId;
+    if (!localId && !accountId) return;
 
     let cancelled = false;
-    setIsLoaded(false);
+    setLoadedRouteId(null);
     setLoadError(null);
+    useCanvasStore.getState().setReadOnly(!localId);
 
-    void getProject(projectId)
-      .then(({ project, elements }) => {
+    const load = localId
+      ? getLocalBoard(localId).then((board) => {
+          if (!board) throw new Error('This local board is no longer available in this browser. Open a saved .canvas.json file to restore it.');
+          return {
+            title: board.title,
+            elements: board.elements,
+            appState: board.appState,
+          };
+        })
+      : getProject(accountId!).then(({ project, elements }) => ({
+          title: project.title,
+          elements,
+          appState: project.appState,
+        }));
+
+    void load
+      .then(({ title: boardTitle, elements, appState }) => {
         if (cancelled) return;
-        setTitle(project.title);
+        setTitle(boardTitle);
         useCanvasStore.getState().loadElements(elements);
+        useCanvasStore.getState().setEditingTextId(null);
         useCanvasStore.getState().setViewport({
-          zoom: project.appState.zoom,
-          scrollX: project.appState.scrollX,
-          scrollY: project.appState.scrollY,
+          zoom: appState.zoom,
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
         });
         useSaveStore.getState().markSaved();
-        setIsLoaded(true);
+        setLoadedRouteId(localId ?? accountId!);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -99,14 +119,74 @@ export default function Editor() {
 
     return () => {
       cancelled = true;
+      useCanvasStore.getState().setReadOnly(false);
     };
-  }, [projectId]);
+  }, [boardId, isLocalBoard, projectId]);
 
   const commitTitle = (next: string): void => {
     const trimmed = next.trim();
-    if (!projectId || !trimmed || trimmed === title) return;
+    if (!isLocalBoard || !boardId || !trimmed || trimmed === title) return;
     setTitle(trimmed);
-    void updateProject(projectId, { title: trimmed });
+    void getLocalBoard(boardId).then((board) => {
+      if (board) return saveLocalBoard({ ...board, title: trimmed });
+      return undefined;
+    }).catch(() => useSaveStore.getState().markFailed('Could not save the title on this device.'));
+  };
+
+  const saveBoardFile = async (): Promise<void> => {
+    if (isSavingFile || !isLoaded) return;
+    setIsSavingFile(true);
+    setFileSaveMessage(null);
+    try {
+      const store = useCanvasStore.getState();
+      const appState = AppStateSchema.parse({
+        zoom: store.zoom,
+        scrollX: store.scrollX,
+        scrollY: store.scrollY,
+      });
+      const boardFile = await exportPortableJson(store.orderedElements(), appState, title);
+      const result = await saveTextToComputer(
+        JSON.stringify(boardFile, null, 2),
+        `${safeFilename(title)}.canvas.json`,
+        'application/json',
+      );
+      setFileSaveMessage(result === 'saved'
+        ? 'Saved to your computer.'
+        : result === 'downloaded'
+          ? 'Board downloaded to your computer.'
+          : 'Save cancelled.');
+    } catch (err) {
+      setFileSaveMessage(err instanceof Error ? err.message : 'Could not save this board file.');
+    } finally {
+      setIsSavingFile(false);
+    }
+  };
+
+  const insertCharacter = (gender: CharacterGender): void => {
+    if (!isLocalBoard) return;
+    const store = useCanvasStore.getState();
+    const center = screenToCanvas(
+      { x: viewport.width / 2, y: viewport.height / 2 },
+      store.zoom,
+      store.scrollX,
+      store.scrollY,
+    );
+    const peopleCount = store.elementOrder.filter((id) => store.elements[id]?.type === 'person').length;
+    const column = peopleCount % 3;
+    const row = Math.floor(peopleCount / 3);
+    const character = createElement('person', {
+      x: center.x - 40 + column * 100,
+      y: center.y - 53 + row * 120,
+    }, {
+      width: 80,
+      height: 106,
+      characterGender: gender,
+      backgroundColor: gender === 'female' ? '#c96852' : '#3d7a70',
+      strokeColor: '#35424a',
+      zIndex: store.elementOrder.length,
+    });
+    store.addElement(character);
+    store.setTool('select');
   };
 
   if (loadError) {
@@ -115,7 +195,7 @@ export default function Editor() {
         <div className="card max-w-sm px-6 py-8 text-center">
           <h1 className="text-base font-semibold">Could not open this board</h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>{loadError}</p>
-          <Link to="/boards" className="btn btn-ghost mt-4">Back to your boards</Link>
+          <Link to={isLocalBoard ? '/local' : '/account-boards'} className="btn btn-ghost mt-4">Back to your boards</Link>
         </div>
       </div>
     );
@@ -128,13 +208,14 @@ export default function Editor() {
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)' }}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <Link to="/boards" className="flex h-8 w-8 items-center justify-center rounded" aria-label="Back to boards">
+          <Link to={isLocalBoard ? '/local' : '/account-boards'} className="flex h-8 w-8 items-center justify-center rounded" aria-label="Back to boards">
             <ChevronLeft size={17} />
           </Link>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={(e) => commitTitle(e.target.value)}
+            readOnly={!isLocalBoard}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
@@ -145,26 +226,29 @@ export default function Editor() {
         </div>
 
         <div className="flex items-center gap-3">
-          {peers.length > 0 && (
-            <div className="flex items-center gap-1" title={`${peers.length} other editor(s)`}>
-              {peers.slice(0, 4).map((peer) => (
-                <span
-                  key={peer.clientId}
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                  style={{ background: peer.color }}
-                  title={peer.name}
-                >
-                  {peer.name.slice(0, 1).toUpperCase()}
-                </span>
-              ))}
-            </div>
-          )}
-          {isConnected && (
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }} data-testid="collab-status">
-              Live
+          {isLocalBoard ? (
+            <>
+              <span className="hidden items-center gap-1 text-xs sm:flex" style={{ color: 'var(--accent)' }} title="Board content stays in this browser" data-testid="local-board-status">
+                <HardDrive size={13} /> On this device
+              </span>
+              {fileSaveMessage && <span className="hidden text-xs sm:inline" style={{ color: 'var(--text-muted)' }} role="status">{fileSaveMessage}</span>}
+              <button
+                type="button"
+                onClick={() => void saveBoardFile()}
+                disabled={isSavingFile || !isLoaded}
+                className="btn btn-primary h-8 px-2 text-xs"
+                data-testid="save-to-computer"
+              >
+                <Download size={14} />
+                {isSavingFile ? 'Saving…' : 'Save to computer'}
+              </button>
+            </>
+          ) : (
+            <span className="rounded px-2 py-1 text-xs" style={{ background: 'var(--surface-sunken)', color: 'var(--text-muted)' }} data-testid="legacy-readonly-status">
+              Read-only account board
             </span>
           )}
-          <SaveStatus />
+          {isLocalBoard && <SaveStatus localOnly />}
           <button
             type="button"
             onClick={() => setShowExport(true)}
@@ -178,7 +262,7 @@ export default function Editor() {
             <button
               type="button"
               onClick={() => useHistoryStore.getState().undo()}
-              disabled={!canUndo}
+              disabled={!isLocalBoard || !canUndo}
               title="Undo (Cmd+Z)"
               aria-label="Undo"
               className="flex h-8 w-8 items-center justify-center rounded disabled:opacity-30"
@@ -188,7 +272,7 @@ export default function Editor() {
             <button
               type="button"
               onClick={() => useHistoryStore.getState().redo()}
-              disabled={!canRedo}
+              disabled={!isLocalBoard || !canRedo}
               title="Redo (Cmd+Shift+Z)"
               aria-label="Redo"
               className="flex h-8 w-8 items-center justify-center rounded disabled:opacity-30"
@@ -199,10 +283,10 @@ export default function Editor() {
         </div>
       </header>
 
-      <Ribbon editor={editor} />
+      {isLocalBoard && <Ribbon editor={editor} onInsertCharacter={insertCharacter} />}
 
       <div className="flex min-h-0 flex-1">
-        <Toolbar />
+        {isLocalBoard && <Toolbar />}
         <div
           ref={(node) => {
             containerRef.current = node;
@@ -211,18 +295,16 @@ export default function Editor() {
           className="relative min-w-0 flex-1"
           style={{ background: 'var(--surface)' }}
         >
-          {viewport.width > 0 && (
+          {isLoaded && viewport.width > 0 && (
             <Stage
               width={viewport.width}
               height={viewport.height}
-              peers={peers}
-              onCursorMove={setCursor}
             />
           )}
           <RichTextOverlay />
           <PdfPageControl />
 
-          {isDragging && (
+          {isLocalBoard && isDragging && (
             <div
               className="pointer-events-none absolute inset-4 flex items-center justify-center rounded-lg text-sm"
               style={{ border: '2px dashed var(--accent)', background: 'var(--accent-soft)', opacity: 0.9 }}
@@ -231,16 +313,16 @@ export default function Editor() {
             </div>
           )}
 
-          {isUploading && (
+          {isLocalBoard && isUploading && (
             <div
               className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg px-3 py-1 text-xs"
               style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
             >
-              Uploading…
+              Adding to this board…
             </div>
           )}
 
-          {uploadError && (
+          {isLocalBoard && uploadError && (
             <div
               className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg px-3 py-1 text-xs"
               style={{ background: 'var(--surface-raised)', border: '1px solid var(--danger)', color: 'var(--danger)' }}
@@ -253,11 +335,18 @@ export default function Editor() {
           <ZoomControls viewport={viewport} />
         </div>
 
-        <PropertiesPanel />
+        {isLocalBoard && <PropertiesPanel />}
       </div>
 
       {showExport && (
-        <ExportDialog projectId={projectId} title={title} onClose={() => setShowExport(false)} />
+        <ExportDialog
+          projectId={undefined}
+          title={title}
+          localOnly={isLocalBoard}
+          readOnly={!isLocalBoard}
+          onTitleChange={(nextTitle) => setTitle(nextTitle)}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );

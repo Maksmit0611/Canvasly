@@ -3,7 +3,7 @@ import {
   CANVAS_FILE_VERSION, CanvasFileSchema, type AppState, type CanvasElement, type CanvasFile,
 } from '@canvas/shared';
 import { boundsOfElements, type Bounds } from './geometry';
-import { fetchAssetBytes } from './assets';
+import { fetchAssetDataUrl } from './assets';
 import { layoutRichText, type RichTextNode } from '@/canvas/richTextLayout';
 import { measureText } from '@/canvas/measureText';
 
@@ -108,6 +108,25 @@ function elementToSvg(element: CanvasElement, assetUrls: Map<string, string>): s
       return `<polygon points="${points}" ${common}${transform} />`;
     }
 
+    case 'person': {
+      const gender = element.characterGender ?? 'male';
+      const body = element.backgroundColor === 'transparent'
+        ? gender === 'female' ? '#c96852' : '#3d7a70'
+        : element.backgroundColor;
+      const hair = gender === 'female' ? '#674633' : '#3c302a';
+      const rotation = element.angle === 0 ? '' : ` rotate(${(element.angle * 180) / Math.PI} 60 80)`;
+      return `<g transform="translate(${element.x} ${element.y}) scale(${element.width / 120} ${element.height / 160})${rotation}" opacity="${element.opacity}">
+        <rect x="22" y="68" width="76" height="19" rx="8" fill="${body}" stroke="${stroke}" stroke-width="2" />
+        <circle cx="24" cy="78" r="8" fill="#f1c6a4" stroke="${stroke}" stroke-width="1.5" /><circle cx="96" cy="78" r="8" fill="#f1c6a4" stroke="${stroke}" stroke-width="1.5" />
+        <rect x="40" y="105" width="17" height="36" rx="5" fill="${body}" stroke="${stroke}" stroke-width="2" /><rect x="63" y="105" width="17" height="36" rx="5" fill="${body}" stroke="${stroke}" stroke-width="2" />
+        <rect x="35" y="136" width="24" height="10" rx="4" fill="#34404a" /><rect x="61" y="136" width="24" height="10" rx="4" fill="#34404a" />
+        <rect x="53" y="51" width="14" height="15" fill="#f1c6a4" /><rect x="35" y="62" width="50" height="47" rx="9" fill="${body}" stroke="${stroke}" stroke-width="2" />
+        <circle cx="60" cy="35" r="19" fill="#f1c6a4" stroke="${stroke}" stroke-width="2" />
+        ${gender === 'female' ? `<rect x="42" y="19" width="36" height="9" rx="5" fill="${hair}" /><circle cx="44" cy="36" r="6" fill="${hair}" /><circle cx="76" cy="36" r="6" fill="${hair}" />` : `<rect x="43" y="17" width="34" height="10" rx="5" fill="${hair}" />`}
+        <circle cx="53" cy="35" r="1.7" fill="#332b28" /><circle cx="67" cy="35" r="1.7" fill="#332b28" /><circle cx="60" cy="12" r="5" fill="#e3ad3c" stroke="${stroke}" stroke-width="1.5" />
+      </g>`;
+    }
+
     case 'line':
     case 'arrow':
     case 'freedraw': {
@@ -173,7 +192,7 @@ function elementToSvg(element: CanvasElement, assetUrls: Map<string, string>): s
 
     case 'image':
     case 'pdf': {
-      const href = element.assetId ? assetUrls.get(element.assetId) : undefined;
+      const href = element.assetData ?? (element.assetId ? assetUrls.get(element.assetId) : undefined);
       if (!href) {
         return `<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="#f4f4f5" stroke="#c4c4c7" />`;
       }
@@ -188,14 +207,12 @@ function elementToSvg(element: CanvasElement, assetUrls: Map<string, string>): s
 /** Base64 data URIs for asset-backed elements, so the SVG is self-contained. */
 async function collectAssetUrls(elements: readonly CanvasElement[]): Promise<Map<string, string>> {
   const urls = new Map<string, string>();
-  const ids = [...new Set(elements.filter((el) => el.type === 'image' && el.assetId).map((el) => el.assetId!))];
+  const ids = [...new Set(elements.filter((el) => (el.type === 'image' || el.type === 'pdf') && el.assetId && !el.assetData).map((el) => el.assetId!))];
 
   await Promise.all(
     ids.map(async (id) => {
       try {
-        const bytes = await fetchAssetBytes(id);
-        const binary = Array.from(new Uint8Array(bytes), (b) => String.fromCharCode(b)).join('');
-        urls.set(id, `data:image/png;base64,${btoa(binary)}`);
+        urls.set(id, await fetchAssetDataUrl(id));
       } catch {
         // A missing asset falls back to a placeholder rectangle.
       }
@@ -231,12 +248,73 @@ export async function exportToSvg(elements: readonly CanvasElement[], transparen
 }
 
 /** The versioned interchange format. */
-export function exportToJson(elements: readonly CanvasElement[], appState: AppState): CanvasFile {
+export function exportToJson(
+  elements: readonly CanvasElement[],
+  appState: AppState,
+  title?: string,
+): CanvasFile {
   return {
     version: CANVAS_FILE_VERSION,
+    ...(title ? { title } : {}),
     elements: [...elements],
     appState,
   };
+}
+
+/** Make a self-contained file; legacy account assets are downloaded only when
+ * the user explicitly saves a portable copy. */
+export async function exportPortableJson(
+  elements: readonly CanvasElement[],
+  appState: AppState,
+  title: string,
+): Promise<CanvasFile> {
+  const assets = new Map<string, string>();
+  const ids = [...new Set(elements.filter((el) => el.assetId && !el.assetData).map((el) => el.assetId!))];
+  await Promise.all(ids.map(async (id) => {
+    assets.set(id, await fetchAssetDataUrl(id));
+  }));
+
+  return exportToJson(
+    elements.map((element) => element.assetId && !element.assetData
+      ? { ...element, assetData: assets.get(element.assetId), assetId: undefined }
+      : element),
+    appState,
+    title,
+  );
+}
+
+/** Save with a native destination picker where available, otherwise download. */
+export async function saveTextToComputer(
+  text: string,
+  filename: string,
+  mimeType: string,
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  type WritableFile = { write: (data: string) => Promise<void>; close: () => Promise<void> };
+  type SavePickerWindow = Window & {
+    showSaveFilePicker?: (options: {
+      suggestedName: string;
+      types: Array<{ description: string; accept: Record<string, string[]> }>;
+    }) => Promise<{ createWritable: () => Promise<WritableFile> }>;
+  };
+
+  const picker = (window as SavePickerWindow).showSaveFilePicker;
+  if (picker) {
+    try {
+      const handle = await picker.call(window, {
+        suggestedName: filename,
+        types: [{ description: 'Canvasly board', accept: { [mimeType]: [`.${filename.split('.').pop() ?? 'json'}`] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return 'saved';
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled';
+    }
+  }
+
+  downloadText(text, filename, mimeType);
+  return 'downloaded';
 }
 
 export interface ImportResult {

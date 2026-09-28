@@ -3,10 +3,11 @@ import type { Editor } from '@tiptap/react';
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowRight, Bold, Circle,
   Code, Diamond, Image as ImageIcon, Indent, Italic, List, ListOrdered, Minus,
-  Outdent, RemoveFormatting, Square, StickyNote, Strikethrough, Type, Underline,
+  Outdent, RemoveFormatting, Square, StickyNote, Strikethrough, Type, Underline, UserRound,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useCanvasStore, type Tool } from '@/store/canvasStore';
+import type { CharacterGender } from '@canvas/shared';
 
 const FONTS = ['Kalam', 'Inter', 'Georgia', 'Courier New', 'Comic Sans MS'];
 const SIZES = [8, 10, 12, 14, 16, 20, 24, 32, 40, 56, 72];
@@ -55,9 +56,10 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 
 interface Props {
   editor: Editor | null;
+  onInsertCharacter?: (gender: CharacterGender) => void;
 }
 
-export default function Ribbon({ editor }: Props) {
+export default function Ribbon({ editor, onInsertCharacter }: Props) {
   const [tab, setTab] = useState<'home' | 'insert'>('home');
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const elements = useCanvasStore((s) => s.elements);
@@ -297,8 +299,24 @@ export default function Ribbon({ editor }: Props) {
             </RibbonButton>
           </Group>
 
+          <Group label="People">
+            <RibbonButton
+              label="Add male character"
+              disabled={!onInsertCharacter}
+              onClick={() => onInsertCharacter?.('male')}
+            >
+              <span className="flex items-center gap-0.5"><UserRound size={13} /><span className="text-[9px] font-semibold">M</span></span>
+            </RibbonButton>
+            <RibbonButton
+              label="Add female character"
+              disabled={!onInsertCharacter}
+              onClick={() => onInsertCharacter?.('female')}
+            >
+              <span className="flex items-center gap-0.5"><UserRound size={13} /><span className="text-[9px] font-semibold">F</span></span>
+            </RibbonButton>
+          </Group>
+
           <Group label="Media">
-            {/* Wired up in Phase 8, where uploads and PDF rendering arrive. */}
             <RibbonButton label="Image" disabled onClick={() => undefined}>
               <ImageIcon size={14} />
             </RibbonButton>

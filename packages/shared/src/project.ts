@@ -83,6 +83,7 @@ export const CANVAS_FILE_VERSION = 1;
 
 export const CanvasFileSchema = z.object({
   version: z.literal(CANVAS_FILE_VERSION),
+  title: z.string().min(1).max(200).optional(),
   elements: z.array(CanvasElementSchema),
   appState: AppStateSchema,
 });

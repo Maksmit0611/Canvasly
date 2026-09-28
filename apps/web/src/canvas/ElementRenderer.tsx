@@ -8,6 +8,7 @@ import FreedrawShape from './shapes/FreedrawShape';
 import TextShape from './shapes/TextShape';
 import ImageShape from './shapes/ImageShape';
 import PdfShape from './shapes/PdfShape';
+import PersonShape from './shapes/PersonShape';
 
 interface Props {
   element: CanvasElement;
@@ -43,6 +44,8 @@ function ElementRenderer({ element, elementsById, ...rest }: Props) {
       return <ImageShape {...shared} />;
     case 'pdf':
       return <PdfShape {...shared} />;
+    case 'person':
+      return <PersonShape {...shared} />;
     default:
       return null;
   }

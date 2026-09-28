@@ -14,16 +14,18 @@ const documentCache = new Map<string, Promise<PDFDocumentProxy>>();
 const cacheKey = (assetId: string, page: number, tier: number): string =>
   `${assetId}:${page}:${tier}`;
 
-function loadDocument(assetId: string): Promise<PDFDocumentProxy> {
+function loadDocument(assetId: string, assetData?: string): Promise<PDFDocumentProxy> {
   const existing = documentCache.get(assetId);
   if (existing) return existing;
 
-  // Bytes come through the authenticated API client, then straight into
-  // pdf.js — it cannot attach our bearer token to a URL of its own.
-  const promise = fetchAssetBytes(assetId)
-    .then((bytes) => pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise)
+  // Private boards carry their PDF bytes in the local board file. Older account
+  // boards continue to read their existing authenticated asset once.
+  const bytes = assetData
+    ? fetch(assetData).then((response) => response.arrayBuffer())
+    : fetchAssetBytes(assetId);
+  const promise = bytes
+    .then((data) => pdfjs.getDocument({ data: new Uint8Array(data) }).promise)
     .catch((err: unknown) => {
-      // A failed load must not be cached, or a retry can never succeed.
       documentCache.delete(assetId);
       throw err;
     });
@@ -46,7 +48,12 @@ export interface PdfPageState {
  * instead of turning to mud, and re-renders are debounced so dragging the zoom
  * does not queue a render per frame.
  */
-export function usePdfPage(assetId: string | undefined, page: number, zoom: number): PdfPageState {
+export function usePdfPage(
+  assetId: string | undefined,
+  page: number,
+  zoom: number,
+  assetData?: string,
+): PdfPageState {
   const [state, setState] = useState<PdfPageState>({
     canvas: null,
     pageCount: 0,
@@ -75,7 +82,7 @@ export function usePdfPage(assetId: string | undefined, page: number, zoom: numb
 
     const run = async (): Promise<void> => {
       try {
-        const doc = await loadDocument(assetId);
+        const doc = await loadDocument(assetId, assetData);
         if (cancelled) return;
 
         const key = cacheKey(assetId, page, tier);
@@ -128,7 +135,7 @@ export function usePdfPage(assetId: string | undefined, page: number, zoom: numb
       cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [assetId, page, tier]);
+  }, [assetId, assetData, page, tier]);
 
   return state;
 }

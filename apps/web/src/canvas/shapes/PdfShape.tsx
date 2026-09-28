@@ -8,7 +8,12 @@ import { commonNodeProps, type ShapeProps } from './ShapeProps';
  */
 export default function PdfShape(props: ShapeProps) {
   const { element, zoom } = props;
-  const { canvas, isLoading, error } = usePdfPage(element.assetId, element.pdfPage ?? 1, zoom);
+  const { canvas, isLoading, error } = usePdfPage(
+    element.assetId ?? (element.assetData ? element.id : undefined),
+    element.pdfPage ?? 1,
+    zoom,
+    element.assetData,
+  );
 
   return (
     <Group {...commonNodeProps(props)}>
