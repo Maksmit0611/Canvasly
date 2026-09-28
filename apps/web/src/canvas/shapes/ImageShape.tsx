@@ -8,15 +8,16 @@ const imageCache = new Map<string, HTMLImageElement>();
 
 export default function ImageShape(props: ShapeProps) {
   const { element } = props;
-  const [image, setImage] = useState<HTMLImageElement | null>(
-    element.assetId ? (imageCache.get(element.assetId) ?? null) : null,
-  );
+  const cacheKey = element.assetId ?? element.id;
+  const [image, setImage] = useState<HTMLImageElement | null>(imageCache.get(cacheKey) ?? null);
 
   useEffect(() => {
     const assetId = element.assetId;
-    if (!assetId) return;
+    const source = element.assetData;
+    if (!assetId && !source) return;
 
-    const cached = imageCache.get(assetId);
+    const key = assetId ?? element.id;
+    const cached = imageCache.get(key);
     if (cached) {
       setImage(cached);
       return;
@@ -25,17 +26,21 @@ export default function ImageShape(props: ShapeProps) {
     let cancelled = false;
     let objectUrl: string | null = null;
 
-    void fetchAssetObjectUrl(assetId)
+    const load = source
+      ? Promise.resolve(source)
+      : fetchAssetObjectUrl(assetId!);
+
+    void load
       .then((url) => {
         if (cancelled) {
-          URL.revokeObjectURL(url);
+          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
           return;
         }
-        objectUrl = url;
+        if (url.startsWith('blob:')) objectUrl = url;
         const img = new window.Image();
         img.onload = () => {
           if (cancelled) return;
-          imageCache.set(assetId, img);
+          imageCache.set(key, img);
           setImage(img);
         };
         img.src = url;
@@ -49,7 +54,7 @@ export default function ImageShape(props: ShapeProps) {
       // The decoded image stays in the cache, so the blob can be released.
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [element.assetId]);
+  }, [element.id, element.assetId, element.assetData]);
 
   return (
     <Group {...commonNodeProps(props)}>

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
+import LocalBoards from '@/pages/LocalBoards';
 import Editor from '@/pages/Editor';
 import SharedView from '@/pages/SharedView';
 import NotFound from '@/pages/NotFound';
@@ -21,14 +22,22 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/s/:token" element={<SharedView />} />
 
-      {/* Authenticated: boards list and the editor. */}
+      {/* New work is stored locally in this browser, with manual file export. */}
+      <Route path="/local" element={<LocalBoards />} />
+      <Route path="/boards" element={<Navigate to="/local" replace />} />
       <Route
-        path="/boards"
+        path="/account-boards"
         element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         }
+      />
+
+      {/* Existing account boards remain accessible as read-only legacy copies. */}
+      <Route
+        path="/local/:boardId"
+        element={<Editor />}
       />
       <Route
         path="/p/:projectId"

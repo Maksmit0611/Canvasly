@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CanvasElement } from '@canvas/shared';
 
-// SVG export pulls image bytes through the API client; stub that so the
-// generator itself can be tested without a server.
+// SVG export embeds assets as data URLs; stub that so the generator can be
+// tested independently of the API client and file reader.
 vi.mock('./assets', () => ({
-  fetchAssetBytes: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+  fetchAssetDataUrl: vi.fn().mockResolvedValue('data:image/png;base64,AQID'),
 }));
 
 const { exportToSvg } = await import('./export');

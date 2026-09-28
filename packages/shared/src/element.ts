@@ -2,9 +2,12 @@ import { z } from 'zod';
 
 export const ElementTypeSchema = z.enum([
   'rectangle', 'ellipse', 'diamond', 'line', 'arrow',
-  'freedraw', 'text', 'image', 'pdf', 'frame',
+  'freedraw', 'text', 'image', 'pdf', 'frame', 'person',
 ]);
 export type ElementType = z.infer<typeof ElementTypeSchema>;
+
+export const CharacterGenderSchema = z.enum(['male', 'female']);
+export type CharacterGender = z.infer<typeof CharacterGenderSchema>;
 
 export const StrokeStyleSchema = z.enum(['solid', 'dashed', 'dotted']);
 export type StrokeStyle = z.infer<typeof StrokeStyleSchema>;
@@ -70,9 +73,12 @@ export const CanvasElementSchema = z.object({
   verticalAlign: VerticalAlignSchema.default('top'),
   lineHeight: z.number().default(1.4),
 
-  // Asset-backed elements (image, pdf)
+  // Asset-backed elements (image, pdf). Local boards keep bytes in the file,
+  // never as a remote asset URL.
   assetId: z.string().uuid().optional(),
+  assetData: z.string().optional(),
   pdfPage: z.number().int().min(1).optional(),
+  characterGender: CharacterGenderSchema.optional(),
 
   // Binding: arrows can attach to shapes and follow them
   boundStartId: z.string().uuid().optional(),

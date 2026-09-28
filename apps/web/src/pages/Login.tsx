@@ -13,7 +13,7 @@ export default function Login(): React.JSX.Element {
   const location = useLocation() as { state?: { from?: string } };
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
-  if (user) return <Navigate to={location.state?.from ?? '/boards'} replace />;
+  if (user) return <Navigate to={location.state?.from ?? '/local'} replace />;
 
   return (
     <div className="landing-grid flex min-h-full flex-col items-center justify-center px-6">

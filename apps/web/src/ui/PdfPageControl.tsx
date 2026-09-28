@@ -18,7 +18,12 @@ export default function PdfPageControl() {
   const isPdf = element?.type === 'pdf' && !element.isDeleted;
 
   // Hooks must run unconditionally, so this is called even when not a PDF.
-  const { pageCount } = usePdfPage(isPdf ? element.assetId : undefined, element?.pdfPage ?? 1, zoom);
+  const { pageCount } = usePdfPage(
+    isPdf ? element.assetId ?? (element.assetData ? element.id : undefined) : undefined,
+    element?.pdfPage ?? 1,
+    zoom,
+    isPdf ? element.assetData : undefined,
+  );
 
   if (!isPdf || !element) return null;
 

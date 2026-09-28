@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, Check, Infinity as InfinityIcon, MousePointer2, Sparkles, Users,
+  ArrowRight, Check, Download, HardDrive, Infinity as InfinityIcon, MousePointer2, Sparkles, Users,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuthStore } from '@/store/authStore';
@@ -18,8 +18,8 @@ const FEATURES = [
   },
   {
     icon: Users,
-    title: 'Create together',
-    body: 'Invite your team to collaborate in real time, with live cursors and instant updates.',
+    title: 'Made for class and teams',
+    body: 'Map roles, steps, and ideas together with friendly people figures and a clear, open canvas.',
   },
 ];
 
@@ -59,28 +59,29 @@ function BoardPreview(): React.JSX.Element {
 
 export default function Landing(): React.JSX.Element {
   const user = useAuthStore((s) => s.user);
-  const startPath = user ? '/boards' : '/login';
+  const startPath = '/local';
 
   return (
     <div className="landing-grid flex min-h-full flex-col overflow-x-hidden">
       <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
         <Logo size={28} />
-        {user ? (
-          <Link to="/boards" className="btn btn-primary" data-testid="open-boards">
-            Open your boards
+        <div className="flex items-center gap-2">
+          {user && (
+            <Link to="/account-boards" className="btn btn-ghost text-xs" data-testid="account-boards-link">
+              Saved account boards
+            </Link>
+          )}
+          <Link to="/local" className="btn btn-primary" data-testid="open-boards">
+            Open local boards
             <ArrowRight size={15} />
           </Link>
-        ) : (
-          <Link to="/login" className="btn btn-ghost" data-testid="signin-top">
-            Sign in
-          </Link>
-        )}
+        </div>
       </header>
 
       <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center px-6 pb-10 pt-12 text-center sm:pt-16">
         <span className="landing-pill" style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}>
           <Sparkles size={13} style={{ color: 'var(--accent)' }} />
-          Your ideas, all on one canvas
+          Private by default · No account needed
         </span>
 
         <h1 className="landing-title mt-6 text-4xl font-bold tracking-tight sm:text-6xl">
@@ -90,20 +91,18 @@ export default function Landing(): React.JSX.Element {
         </h1>
 
         <p className="mt-5 max-w-2xl text-base sm:text-lg" style={{ color: 'var(--text-muted)' }}>
-          Sketch, plan, and connect the dots on a shared infinite whiteboard. Simple to start,
-          roomy enough for whatever you dream up.
+          Sketch, plan, and teach on a private infinite canvas. Your boards stay in this browser until you choose to save a file to your computer.
         </p>
 
         <div className="mt-8 flex flex-col items-center gap-3">
           <Link to={startPath} className="btn btn-primary landing-cta" data-testid="start-whiteboard">
-            {user ? 'Open your whiteboard' : 'Start your whiteboard'}
+            {user ? 'Open your local workspace' : 'Start a private board'}
             <ArrowRight size={16} />
           </Link>
-          {!user && (
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Start by signing in with Google · Your boards are saved to your account
-            </p>
-          )}
+          <p className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+            <HardDrive size={13} style={{ color: 'var(--accent)' }} />
+            Boards stay on this device · Download a portable copy anytime
+          </p>
         </div>
 
         <div className="mt-12 w-full max-w-4xl sm:mt-16">
@@ -134,20 +133,18 @@ export default function Landing(): React.JSX.Element {
         </div>
         <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border px-5 py-5 sm:flex-row sm:px-7" style={{ borderColor: 'var(--border)', background: 'var(--surface-raised)' }}>
           <div>
-            <p className="font-semibold">Ready to get it out of your head?</p>
-            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Your next idea can start with one sketch.</p>
+            <p className="font-semibold">Ready to make your next idea visible?</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Start locally. Save a copy on your computer when you’re ready.</p>
           </div>
           <Link to={startPath} className="btn btn-primary whitespace-nowrap">
-            {user ? 'Go to your boards' : 'Start a whiteboard'}
+            Start a local board
             <ArrowRight size={15} />
           </Link>
         </div>
-        {!user && (
-          <p className="mt-4 flex items-center justify-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <Check size={14} style={{ color: 'var(--accent)' }} />
-            Google sign-in is needed to save boards to your account.
-          </p>
-        )}
+        <p className="mt-4 flex items-center justify-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <Download size={14} style={{ color: 'var(--accent)' }} />
+          Your work is autosaved in this browser and can be downloaded as a Canvasly board file.
+        </p>
       </section>
 
       <footer className="relative z-10 pb-8 text-center text-xs" style={{ color: 'var(--text-muted)' }}>

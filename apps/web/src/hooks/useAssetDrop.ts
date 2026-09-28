@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CanvasElement } from '@canvas/shared';
 import { useCanvasStore } from '@/store/canvasStore';
 import { createElement } from '@/lib/elementFactory';
-import { fitPlacementSize, imageDimensions, uploadAsset } from '@/lib/assets';
+import { fileToDataUrl, fitPlacementSize, imageDimensions, uploadAsset } from '@/lib/assets';
 import { screenToCanvas } from '@/lib/geometry';
 
 interface Options {
   projectId: string | undefined;
   container: HTMLElement | null;
+  localOnly?: boolean;
+  allowRemoteUpload?: boolean;
 }
 
 export interface AssetDropState {
@@ -16,53 +18,65 @@ export interface AssetDropState {
   error: string | null;
 }
 
-/**
- * Upload files dropped on the canvas or pasted from the clipboard, then place
- * them at the drop point sized to their natural dimensions.
- */
-export function useAssetDrop({ projectId, container }: Options): AssetDropState {
+/** Add dropped or pasted files; private boards retain their bytes in the board itself. */
+export function useAssetDrop({
+  projectId,
+  container,
+  localOnly = false,
+  allowRemoteUpload = true,
+}: Options): AssetDropState {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const placeFile = useCallback(
     async (file: File, screenPoint: { x: number; y: number }): Promise<void> => {
-      if (!projectId) return;
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (localOnly ? (!file.type.startsWith('image/') && !isPdf) : (!allowRemoteUpload || !projectId)) return;
 
       setIsUploading(true);
       setError(null);
 
       try {
-        const asset = await uploadAsset(projectId, file);
+        const kind = isPdf ? 'pdf' : 'image';
+        if (localOnly && kind === 'image' && !file.type.startsWith('image/')) {
+          throw new Error('Choose an image or PDF file.');
+        }
+
+        const [asset, assetData] = await Promise.all([
+          localOnly ? Promise.resolve(null) : uploadAsset(projectId!, file),
+          localOnly ? fileToDataUrl(file) : Promise.resolve(undefined),
+        ]);
         const store = useCanvasStore.getState();
         const at = screenToCanvas(screenPoint, store.zoom, store.scrollX, store.scrollY);
 
         let size = { width: 400, height: 520 };
-        if (asset.kind === 'image') {
+        if (kind === 'image') {
           const natural = await imageDimensions(file);
           size = fitPlacementSize(natural.width, natural.height);
         }
 
         const element: CanvasElement = createElement(
-          asset.kind === 'pdf' ? 'pdf' : 'image',
+          kind === 'pdf' ? 'pdf' : 'image',
           { x: at.x - size.width / 2, y: at.y - size.height / 2 },
           {
             width: size.width,
             height: size.height,
-            assetId: asset.id,
+            ...(asset ? { assetId: asset.id } : {}),
+            ...(assetData ? { assetData } : {}),
             zIndex: store.elementOrder.length,
-            ...(asset.kind === 'pdf' ? { pdfPage: 1 } : {}),
+            ...(kind === 'pdf' ? { pdfPage: 1 } : {}),
           },
         );
 
         store.addElement(element);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Upload failed');
+        setError(err instanceof Error ? err.message : 'Could not add this file');
       } finally {
         setIsUploading(false);
       }
     },
-    [projectId],
+    [allowRemoteUpload, localOnly, projectId],
   );
 
   useEffect(() => {
@@ -75,7 +89,6 @@ export function useAssetDrop({ projectId, container }: Options): AssetDropState 
     };
 
     const onDragLeave = (e: DragEvent): void => {
-      // Ignore moves between child nodes inside the container.
       if (e.relatedTarget && container.contains(e.relatedTarget as Node)) return;
       setIsDragging(false);
     };
@@ -86,21 +99,17 @@ export function useAssetDrop({ projectId, container }: Options): AssetDropState 
 
       e.preventDefault();
       setIsDragging(false);
-
       const rect = container.getBoundingClientRect();
       const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
       for (const file of Array.from(files)) void placeFile(file, point);
     };
 
     const onPaste = (e: ClipboardEvent): void => {
       const target = e.target as HTMLElement | null;
-      // Let a focused text editor handle its own paste.
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName ?? '')) return;
 
       const files = Array.from(e.clipboardData?.files ?? []);
       if (files.length === 0) return;
-
       e.preventDefault();
       const rect = container.getBoundingClientRect();
       const centre = { x: rect.width / 2, y: rect.height / 2 };

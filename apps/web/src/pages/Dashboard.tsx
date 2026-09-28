@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, LogOut } from 'lucide-react';
 import type { Project } from '@canvas/shared';
 import { Logo } from '@/components/Logo';
 import { signOut } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
-import { createProject, deleteProject, listProjects } from '@/lib/projects';
+import { listProjects } from '@/lib/projects';
 
 const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -17,7 +17,6 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,29 +37,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const onCreate = async (): Promise<void> => {
-    setIsCreating(true);
-    try {
-      const project = await createProject();
-      navigate(`/p/${project.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create a board');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const onDelete = async (id: string): Promise<void> => {
-    // Optimistic: put the row back if the request fails.
-    const previous = projects;
-    setProjects((rows) => rows.filter((p) => p.id !== id));
-    try {
-      await deleteProject(id);
-    } catch {
-      setProjects(previous);
-      setError('Could not delete that board');
-    }
-  };
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
@@ -80,7 +56,7 @@ export default function Dashboard() {
             />
           )}
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Your boards</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Saved account boards</h1>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }} data-testid="user-label">
               {user?.name ?? user?.email ?? 'Signed in'}
             </p>
@@ -88,19 +64,13 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button type="button" className="btn btn-ghost" onClick={() => navigate('/local')}>
+            <ArrowLeft size={16} />
+            Local workspace
+          </button>
           <button type="button" className="btn btn-ghost" onClick={() => void signOut()}>
             <LogOut size={16} />
             Sign out
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => void onCreate()}
-            disabled={isCreating}
-            data-testid="new-board"
-          >
-            <Plus size={16} />
-            New board
           </button>
         </div>
       </header>
@@ -119,15 +89,9 @@ export default function Dashboard() {
           style={{ borderStyle: 'dashed' }}
         >
           <Logo size={34} />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No boards yet.</p>
-          <button
-            type="button"
-            className="btn btn-primary mt-4"
-            onClick={() => void onCreate()}
-            disabled={isCreating}
-          >
-            <Plus size={16} />
-            Create your first board
+          <p className="mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>No earlier account boards were found.</p>
+          <button type="button" className="btn btn-primary mt-4" onClick={() => navigate('/local')}>
+            <Download size={16} /> Start a local board
           </button>
         </div>
       ) : (
@@ -138,10 +102,12 @@ export default function Dashboard() {
               className="card group relative overflow-hidden transition-shadow duration-200 hover:shadow-md"
             >
               <button
-                type="button"
-                onClick={() => navigate(`/p/${project.id}`)}
-                className="block w-full text-left"
-              >
+                  type="button"
+                  onClick={() => navigate(`/p/${project.id}`)}
+                  className="block w-full text-left"
+                  title="Open read-only account board"
+                >
+
                 <div
                   className="flex h-32 items-center justify-center"
                   style={{ background: 'var(--surface-sunken)' }}
@@ -158,16 +124,6 @@ export default function Dashboard() {
                     {formatDate(project.updatedAt)}
                   </div>
                 </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void onDelete(project.id)}
-                aria-label={`Delete ${project.title}`}
-                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100"
-                style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
-              >
-                <Trash2 size={13} />
               </button>
             </li>
           ))}

@@ -38,6 +38,28 @@ export async function fetchAssetObjectUrl(
   return URL.createObjectURL(new Blob([bytes]));
 }
 
+/** Read a selected local file as a self-contained data URL for offline boards. */
+export function fileToDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('Could not read this file'));
+    reader.onerror = () => reject(new Error('Could not read this file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Fetch an older online asset once so a desktop board export can include its bytes. */
+export async function fetchAssetDataUrl(assetId: string): Promise<string> {
+  const { data, headers } = await api.get<ArrayBuffer>(`/assets/${assetId}/raw`, {
+    responseType: 'arraybuffer',
+  });
+  const headerType = headers['content-type'];
+  const mimeType = typeof headerType === 'string' ? headerType : 'application/octet-stream';
+  return fileToDataUrl(new Blob([data], { type: mimeType }));
+}
+
 export async function uploadAsset(projectId: string, file: File): Promise<Asset> {
   const form = new FormData();
   form.append('file', file);
