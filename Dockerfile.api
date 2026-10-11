@@ -40,5 +40,5 @@ EXPOSE 5050
 WORKDIR /app/apps/api
 
 # Run migrations then start the server.
-# DATABASE_URL is injected by Railway from the linked PostgreSQL plugin.
+# Supply DATABASE_URL (or DB_* variables) from your deployment environment.
 CMD ["sh", "-c", "node scripts/migrate.js up && node dist/index.js"]

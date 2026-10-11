@@ -14,8 +14,8 @@ COPY tsconfig.base.json ./
 
 RUN npm run build --workspace=packages/shared
 
-# VITE_* vars are baked in at build time. Railway injects them from the
-# service's Variables tab before this build step runs.
+# VITE_* vars are baked into the static site at build time. Pass them as
+# Docker build args (or set them in your hosting provider's build environment).
 ARG VITE_API_URL
 ARG VITE_WS_URL
 ARG VITE_GOOGLE_CLIENT_ID
