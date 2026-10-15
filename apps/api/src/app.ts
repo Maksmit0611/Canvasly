@@ -20,9 +20,10 @@ import { ApiError } from './errors.js';
 export function createApp(): Express {
   const app = express();
 
-  // Railway terminates TLS upstream; trust it so rate limiting and `secure`
-  // cookies see the real client protocol and address.
-  app.set('trust proxy', 1);
+  // A reverse proxy may terminate TLS upstream; trust it so rate limiting and
+  // secure cookies can use the forwarded client protocol/address.
+  // Trust one edge proxy only when explicitly enabled for hosted deployments.
+  app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
   app.disable('x-powered-by');
 
   app.use(

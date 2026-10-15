@@ -37,9 +37,11 @@ interface Options {
   shareToken?: string;
 }
 
-const wsBase = (): string =>
-  import.meta.env.VITE_WS_URL ??
-  `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/collab`;
+const wsBase = (): string => {
+  const configuredUrl = import.meta.env.VITE_WS_URL;
+  return configuredUrl ||
+    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/collab`;
+};
 
 /**
  * Bind a Y.Map of elements bidirectionally to the canvas store.
