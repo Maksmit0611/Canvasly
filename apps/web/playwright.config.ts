@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const WEB_PORT = 5173;
 const API_PORT = 5050;
-const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL || undefined;
 
 export default defineConfig({
   testDir: './e2e',

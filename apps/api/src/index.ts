@@ -4,8 +4,9 @@ import { logger } from './logger.js';
 import { closePool } from './db/pool.js';
 import { attachCollabServer } from './collab/yjsServer.js';
 
-const server = app.listen(config.PORT, () => {
-  logger.info(`listening on :${config.PORT}`);
+// Bind all interfaces so the API is reachable through container/platform port mapping.
+const server = app.listen(config.PORT, '0.0.0.0', () => {
+  logger.info(`listening on 0.0.0.0:${config.PORT}`);
 });
 
 // Collaboration shares the HTTP server, so one port serves both.

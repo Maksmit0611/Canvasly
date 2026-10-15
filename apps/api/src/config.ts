@@ -12,11 +12,11 @@ const ConfigSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-    // 5050, not 5000: macOS AirPlay Receiver (ControlCenter) owns 5000.
+    // Respect the hosting platform's injected port; 5050 is the local default.
     PORT: z.coerce.number().int().min(1).max(65535).default(5050),
     CORS_ORIGINS: z.string().default('http://localhost:5173').transform(csv),
 
-    // Railway injects DATABASE_URL; it wins over the individual DB_* vars.
+    // DATABASE_URL from the runtime environment wins over individual DB_* vars.
     DATABASE_URL: z.string().optional(),
     DB_HOST: z.string().default('localhost'),
     DB_PORT: z.coerce.number().int().default(5432),
@@ -59,7 +59,7 @@ const parsed = ConfigSchema.safeParse(process.env);
 if (!parsed.success) {
   const lines = parsed.error.issues.map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`);
   console.error(`Invalid environment configuration:\n${lines.join('\n')}\n`);
-  console.error('Copy .env.example to .env at the repo root and fill in the missing values.');
+  console.error('Set the missing environment values (see .env.example for the full configuration).');
   process.exit(1);
 }
 
