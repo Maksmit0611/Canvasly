@@ -12,6 +12,8 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://localhost:5050', changeOrigin: true },
       '/collab': { target: 'ws://localhost:5050', ws: true },
+      // MCP (Model Context Protocol) endpoint exposed by the API.
+      '/mcp': { target: 'http://localhost:5050', changeOrigin: true },
     },
   },
   envDir: path.resolve(__dirname, '../..'),

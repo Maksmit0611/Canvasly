@@ -36,6 +36,43 @@ npm run dev
 
 Open <http://localhost:5173>. The Vite server proxies `/api` and `/collab` to the API on port 5050. The `.env` database defaults are configured for the included PostgreSQL service.
 
+## Connect Claude and ChatGPT via MCP
+
+Canvasly exposes an MCP (Model Context Protocol) server under the same API origin, protected by its own bearer token. Tools operate as **one specific user** — the token is not an all-user master key.
+
+Generate a token and enable it:
+
+```sh
+openssl rand -base64 48   # MCP_TOKEN
+```
+
+Then set in `.env` (or Settings → Environment on hostings, plus `MCP_TOKEN` / `MCP_USER_EMAIL` are forwarded by `docker-compose.yml`):
+
+```
+MCP_TOKEN=<generated token>
+MCP_USER_EMAIL=<your Canvasly login email>
+```
+
+Point MCP clients at:
+
+- **Claude Desktop / other MCP clients**: server URL `https://<your-host>/mcp`, transport “Streamable HTTP”, header `Authorization: Bearer <MCP_TOKEN>`. For local Claude Desktop with the dev server, use `http://localhost:5173/mcp` (Vite and Compose nginx both proxy `/mcp` to the API).
+- **ChatGPT connectors**: same URL + header; stateless mode means no session affinity is required.
+
+Available tools:
+
+| Tool | Purpose |
+|---|---|
+| `list_boards` | list the configured user’s boards |
+| `create_board` | new board, optional title |
+| `get_board` | full board metadata and elements |
+| `update_elements` | batch upsert shapes (rectangle, ellipse, text, arrow, freedraw, person, frame…) |
+| `delete_elements` | soft-delete shapes by id |
+| `rename_board` | rename, or archive/restore |
+| `set_board_state` | merge view state (zoom, scroll, grid, theme) |
+| `share_board` / `list_share_links` / `revoke_share_link` / `check_share_link` | manage the public share links |
+
+Every tool enforces the same ownership checks as the REST routes. With `MCP_TOKEN` unset the endpoint answers `501` and is fully disabled.
+
 ## Deploy with Docker
 
 The API and web app are separate images so they can run on any Docker-capable host. Build from the repository root (both Dockerfiles need the monorepo files):
@@ -78,6 +115,7 @@ Set the Google OAuth client's JavaScript origin to the final web origin. Set `CO
 - `CORS_ORIGINS` for the web origin
 - `PORT` if the platform injects a port other than 5050
 - `TRUST_PROXY=true` only when the API sits behind one trusted TLS-terminating proxy
+- Optional: `MCP_TOKEN` + `MCP_USER_EMAIL` to enable the MCP server (disabled until both are set)
 
 For S3-compatible asset storage, set `STORAGE_DRIVER=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and optionally `S3_REGION`. See `.env.example` for all supported settings.
 
