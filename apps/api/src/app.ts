@@ -15,6 +15,7 @@ import { assetsRouter } from './routes/assets.routes.js';
 import { elementsRouter } from './routes/elements.routes.js';
 import { shareRouter } from './routes/share.routes.js';
 import { aiRouter } from './routes/ai.routes.js';
+import { mcpRouter } from './mcp/handler.js';
 import { ApiError } from './errors.js';
 
 export function createApp(): Express {
@@ -80,6 +81,10 @@ export function createApp(): Express {
   app.use('/api', assetsRouter);
   app.use('/api', shareRouter);
   app.use('/api', aiRouter);
+
+  // MCP (Model Context Protocol) rides the same Express app under /mcp, with
+  // its own bearer token and not the browser session's rate-limit budget.
+  app.use('/mcp', mcpRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

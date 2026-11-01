@@ -38,6 +38,11 @@ const ConfigSchema = z
     S3_BUCKET: z.string().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
+
+    /** MCP (Model Context Protocol) server points. */
+    MCP_TOKEN: z.string().optional(),
+    /** The one Canvasly user MCP tools operate as. Optional (disabled tool defaults to the first user). */
+    MCP_USER_EMAIL: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
     if (cfg.STORAGE_DRIVER !== 's3') return;

@@ -11,6 +11,7 @@ import { findProjectById, findProjectForOwner } from '../db/queries/projects.js'
 import { findActiveShareLink } from '../db/queries/shareLinks.js';
 import { listElements } from '../db/queries/elements.js';
 import { findLatestSnapshot, insertSnapshot, pruneSnapshots } from '../db/queries/snapshots.js';
+import { isTest } from '../config.js';
 import { logger } from '../logger.js';
 
 const MESSAGE_SYNC = 0;
@@ -20,6 +21,58 @@ const SNAPSHOT_DEBOUNCE_MS = 10_000;
 const SNAPSHOTS_TO_KEEP = 5;
 /** Drop a socket that stops answering pings. */
 const PING_INTERVAL_MS = 30_000;
+
+/**
+ * Hardening caps for an authorised peer that misbehaves anyway.
+ *
+ * - `WS_MAX_PAYLOAD`: a single frame beyond this is rejected by `ws` before it
+ *   is buffered. Live Yjs sync and awareness payloads sit far below 1 MB, so
+ *   exceeding it signals abuse, not a real client.
+ * - `WS_MAX_PER_ROOM`: bounds the fan-out of every broadcast.
+ * - `WS_MAX_ROOMS`: bounds total memory held in room documents.
+ * - `upgradeLimiter`: each handshake performs DB lookups, and the HTTP request
+ *   limiter does not see upgrade requests, so the collab path needs its own.
+ */
+const WS_MAX_PAYLOAD = 1024 * 1024;
+const WS_MAX_PER_ROOM = 64;
+const WS_MAX_ROOMS = 256;
+const UPGRADE_WINDOW_MS = 60_000;
+const UPGRADE_MAX_PER_WINDOW = 30;
+
+/**
+ * Simple fixed-window counter per IP. Small, allocation-light, and enough to
+ * turn an upgrade flood from a load generator into a rejected handshake.
+ */
+export const upgradeLimiter = new Map<string, { windowStart: number; hits: number }>();
+
+/** Counted-window core, exported so tests can exercise it directly. */
+export function countUpgrade(ip: string, now: number): boolean {
+  const entry = upgradeLimiter.get(ip);
+  if (!entry || now - entry.windowStart >= UPGRADE_WINDOW_MS) {
+    upgradeLimiter.set(ip, { windowStart: now, hits: 1 });
+    // Prune opportunistically so the map cannot grow with spoofed addresses.
+    if (upgradeLimiter.size > 10_000) {
+      for (const [key, value] of upgradeLimiter) {
+        if (now - value.windowStart >= UPGRADE_WINDOW_MS) upgradeLimiter.delete(key);
+      }
+    }
+    return true;
+  }
+
+  entry.hits += 1;
+  return entry.hits <= UPGRADE_MAX_PER_WINDOW;
+}
+
+function allowUpgrade(ip: string): boolean {
+  // The unit suite rides one loopback address and would trip a real window.
+  if (isTest) return true;
+  return countUpgrade(ip, Date.now());
+}
+
+function roomHasCapacity(room: Room | undefined): boolean {
+  if (!room) return rooms.size < WS_MAX_ROOMS;
+  return room.connections.size < WS_MAX_PER_ROOM;
+}
 
 interface Room {
   doc: Y.Doc;
@@ -249,7 +302,9 @@ function setupConnection(socket: WebSocket, identity: CollabIdentity): void {
         awarenessProtocol.applyAwarenessUpdate(room.awareness, update, socket);
       }
     } catch (err) {
-      logger.error({ err }, 'malformed collaboration message');
+      // Debug, not error: a hostile peer could otherwise fill the logs with
+      // malformed frames on purpose.
+      logger.debug({ err }, 'malformed collaboration message');
     }
   });
 
@@ -314,7 +369,7 @@ function setupConnection(socket: WebSocket, identity: CollabIdentity): void {
 
 /** Attach the collaboration server to the existing HTTP server on /collab. */
 export function attachCollabServer(server: Server): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD });
 
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -322,6 +377,15 @@ export function attachCollabServer(server: Server): WebSocketServer {
     if (url.pathname !== '/collab' && !url.pathname.startsWith('/collab/')) return;
 
     void (async () => {
+      // Rate limit the handshake before any DB work: every authorised upgrade
+      // costs queries, so an upgrade storm is itself an attack.
+      const ip = request.socket.remoteAddress ?? 'unknown';
+      if (!allowUpgrade(ip)) {
+        socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       const identity = await authorizeCollab(url).catch(() => null);
 
       if (!identity) {
@@ -337,6 +401,12 @@ export function attachCollabServer(server: Server): WebSocketServer {
         return;
       }
 
+      if (!roomHasCapacity(rooms.get(identity.projectId))) {
+        socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
         setupConnection(ws, identity);
@@ -347,11 +417,20 @@ export function attachCollabServer(server: Server): WebSocketServer {
   return wss;
 }
 
-/** Test helper: drop all in-memory rooms. */
+/** Test helper: drop all in-memory rooms and rate-limit state. */
 export function resetCollabRooms(): void {
   for (const room of rooms.values()) {
     if (room.snapshotTimer) clearTimeout(room.snapshotTimer);
     room.doc.destroy();
   }
   rooms.clear();
+  upgradeLimiter.clear();
 }
+
+export const WS_LIMITS = {
+  maxPayload: WS_MAX_PAYLOAD,
+  maxPerRoom: WS_MAX_PER_ROOM,
+  maxRooms: WS_MAX_ROOMS,
+  upgradeWindowMs: UPGRADE_WINDOW_MS,
+  upgradeMaxPerWindow: UPGRADE_MAX_PER_WINDOW,
+} as const;
